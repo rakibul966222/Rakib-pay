@@ -1,73 +1,134 @@
 
-import React from 'react';
-import { UserProfile } from '../types';
-import { MessageSquare, Search, Plus } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { UserProfile, Message } from '../types';
+import { Send, Sparkles, Bot, Loader2 } from 'lucide-react';
+import { GoogleGenAI } from "@google/genai";
+import { sendNotification } from '../utils/notifications';
 
-interface ChatListProps {
+interface ChatProps {
   profile: UserProfile;
 }
 
-const ChatList: React.FC<ChatListProps> = ({ profile }) => {
+const ChatList: React.FC<ChatProps> = ({ profile }) => {
+  const [messages, setMessages] = useState<Message[]>([
+    { id: '1', senderId: 'ai', text: `Hello ${profile.name}! I'm your ZenWallet AI assistant. How can I help you today?`, timestamp: Date.now(), isAI: true }
+  ]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || loading) return;
+
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      senderId: profile.uid,
+      text: input,
+      timestamp: Date.now(),
+    };
+
+    setMessages(prev => [...prev, userMsg]);
+    const currentInput = input;
+    setInput('');
+    setLoading(true);
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `You are a helpful financial AI assistant for ZenWallet. User balance is $${profile.balance}. User name is ${profile.name}. Answer this: ${currentInput}`,
+      });
+
+      const aiMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        senderId: 'ai',
+        text: response.text || "I'm sorry, I couldn't process that. Can you try again?",
+        timestamp: Date.now(),
+        isAI: true,
+      };
+      
+      setMessages(prev => [...prev, aiMsg]);
+      
+      // Send notification for AI response
+      sendNotification("🤖 AI Assistant", {
+        body: aiMsg.text.length > 50 ? aiMsg.text.substring(0, 50) + "..." : aiMsg.text,
+      });
+
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <main className="md:ml-64 p-6 pb-24 md:pb-6 min-h-screen">
-      <header className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Messages</h1>
-          <p className="text-slate-400">Instant support and user-to-user chat</p>
+    <main className="md:ml-64 p-0 h-screen bg-slate-950 flex flex-col">
+      <header className="p-4 glass border-b border-white/10 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+            <Bot size={24} />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-white">Smart Assistant</h1>
+            <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Online
+            </p>
+          </div>
         </div>
-        <button className="p-3 bg-indigo-600 rounded-2xl text-white shadow-xl shadow-indigo-600/20 hover:bg-indigo-500">
-          <Plus size={24} />
-        </button>
+        <div className="p-2 glass rounded-lg text-indigo-400">
+          <Sparkles size={20} />
+        </div>
       </header>
 
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={20} />
-          <input 
-            placeholder="Search conversations..."
-            className="w-full glass py-4 pl-12 pr-4 rounded-2xl text-white focus:outline-none focus:border-indigo-500/50"
-          />
-        </div>
-
-        <div className="glass rounded-3xl p-4 divide-y divide-white/5">
-          <div className="flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl transition-all cursor-pointer">
-            <div className="relative">
-              <div className="w-14 h-14 bg-indigo-500 rounded-2xl flex items-center justify-center font-bold text-xl text-white">S</div>
-              <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-4 border-slate-900 rounded-full"></span>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((msg) => (
+          <div key={msg.id} className={`flex ${msg.isAI ? 'justify-start' : 'justify-end'}`}>
+            <div className={`max-w-[80%] p-4 rounded-2xl ${
+              msg.isAI 
+              ? 'bg-slate-900 border border-white/5 text-slate-200' 
+              : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/10'
+            }`}>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+              <p className={`text-[9px] mt-2 opacity-50 ${msg.isAI ? 'text-left' : 'text-right'}`}>
+                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
             </div>
-            <div className="flex-1">
-              <div className="flex justify-between mb-1">
-                <p className="font-bold text-white">Support Team</p>
-                <span className="text-xs text-slate-500">12:45 PM</span>
-              </div>
-              <p className="text-sm text-slate-400 truncate">Your transaction was successful! Let us know if you need anything else.</p>
-            </div>
-            <div className="w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center text-[10px] font-bold text-white">2</div>
           </div>
-
-          {[1,2,3].map(i => (
-            <div key={i} className="flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl transition-all cursor-pointer">
-              <div className="w-14 h-14 bg-slate-800 rounded-2xl flex items-center justify-center font-bold text-xl text-slate-400">
-                U{i}
-              </div>
-              <div className="flex-1">
-                <div className="flex justify-between mb-1">
-                  <p className="font-bold text-white">User {i}</p>
-                  <span className="text-xs text-slate-500">Yesterday</span>
-                </div>
-                <p className="text-sm text-slate-500 truncate">Sent you a money request for $50</p>
-              </div>
+        ))}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-slate-900 p-4 rounded-2xl border border-white/5 flex items-center gap-2">
+              <Loader2 size={16} className="animate-spin text-indigo-400" />
+              <span className="text-xs text-slate-500">AI is thinking...</span>
             </div>
-          ))}
-        </div>
-
-        <div className="text-center py-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white/5 text-slate-600 rounded-full mb-4">
-            <MessageSquare size={32} />
           </div>
-          <p className="text-slate-500">No other active conversations</p>
-        </div>
+        )}
       </div>
+
+      <form onSubmit={handleSend} className="p-4 bg-slate-950/80 backdrop-blur-md">
+        <div className="relative max-w-4xl mx-auto">
+          <input 
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask about your balance or saving tips..."
+            className="w-full glass py-4 pl-6 pr-14 rounded-2xl text-white focus:outline-none focus:border-indigo-500/50 transition-all"
+          />
+          <button 
+            type="submit"
+            disabled={loading}
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white hover:bg-indigo-500 disabled:opacity-50 transition-all"
+          >
+            <Send size={18} />
+          </button>
+        </div>
+      </form>
     </main>
   );
 };

@@ -11,6 +11,8 @@ export interface UserProfile {
   kycStatus: 'pending' | 'verified' | 'unverified';
 }
 
+export type TransactionCategory = 'Food' | 'Shopping' | 'Utilities' | 'Travel' | 'Entertainment' | 'Others';
+
 export interface Transaction {
   id: string;
   from: string;
@@ -20,8 +22,10 @@ export interface Transaction {
   amount: number;
   charge: number;
   type: 'send' | 'receive' | 'add_money';
+  category?: TransactionCategory;
   note?: string;
   timestamp: number;
+  participants: string[];
 }
 
 export interface Message {
@@ -29,12 +33,5 @@ export interface Message {
   senderId: string;
   text: string;
   timestamp: number;
-  status: 'sent' | 'delivered' | 'seen';
-}
-
-export interface Chat {
-  id: string;
-  participants: string[];
-  lastMessage?: string;
-  lastTimestamp?: number;
+  isAI?: boolean;
 }

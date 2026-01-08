@@ -1,21 +1,30 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserProfile } from '../types';
 import { auth } from '../firebase';
-import { LogOut, ChevronRight, Moon, Globe, Bell, Lock, UserX } from 'lucide-react';
+import { LogOut, ChevronRight, Moon, Globe, Bell, Lock, UserX, AlertCircle } from 'lucide-react';
+import { requestNotificationPermission } from '../utils/notifications';
 
 interface SettingsProps {
   profile: UserProfile;
 }
 
 const Settings: React.FC<SettingsProps> = ({ profile }) => {
+  const [notifStatus, setNotifStatus] = useState<NotificationPermission>(
+    "Notification" in window ? Notification.permission : "default" as any
+  );
+
+  const handleRequestNotif = async () => {
+    const granted = await requestNotificationPermission();
+    setNotifStatus(Notification.permission);
+  };
+
   const settingGroups = [
     {
       title: 'General',
       items: [
         { icon: Moon, label: 'Dark Mode', extra: 'On' },
         { icon: Globe, label: 'Language', extra: 'English' },
-        { icon: Bell, label: 'Notifications', extra: 'Enabled' },
       ]
     },
     {
@@ -35,6 +44,37 @@ const Settings: React.FC<SettingsProps> = ({ profile }) => {
       </header>
 
       <div className="max-w-2xl mx-auto space-y-8">
+        {/* Notification Status Card */}
+        <div className="glass p-6 rounded-3xl border border-indigo-500/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-indigo-500/10 text-indigo-500 rounded-xl">
+                <Bell size={24} />
+              </div>
+              <div>
+                <h3 className="font-bold text-white">Browser Notifications</h3>
+                <p className="text-xs text-slate-500">Get real-time transaction alerts</p>
+              </div>
+            </div>
+            {notifStatus === 'granted' ? (
+              <span className="text-emerald-500 text-xs font-bold uppercase tracking-widest px-3 py-1 bg-emerald-500/10 rounded-full">Active</span>
+            ) : (
+              <button 
+                onClick={handleRequestNotif}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-indigo-500 transition-all"
+              >
+                Enable
+              </button>
+            )}
+          </div>
+          {notifStatus === 'denied' && (
+            <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-2 text-red-400 text-[10px]">
+              <AlertCircle size={14} />
+              Notifications are blocked. Please enable them in your browser settings.
+            </div>
+          )}
+        </div>
+
         {settingGroups.map((group, idx) => (
           <div key={idx} className="space-y-4">
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-4">{group.title}</h3>
@@ -70,11 +110,6 @@ const Settings: React.FC<SettingsProps> = ({ profile }) => {
             </div>
             <span className="font-bold flex-1 text-left">Logout Account</span>
             <ChevronRight size={18} />
-          </button>
-
-          <button className="w-full flex items-center gap-4 p-5 text-slate-600 hover:text-red-500 transition-all text-sm group">
-            <UserX size={20} />
-            <span className="font-medium">Deactivate Account</span>
           </button>
         </div>
 

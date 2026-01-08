@@ -5,6 +5,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { UserProfile } from './types';
+import { requestNotificationPermission } from './utils/notifications';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -39,6 +40,8 @@ const App: React.FC = () => {
         if (docSnap.exists()) {
           setProfile(docSnap.data() as UserProfile);
         }
+        // Ask for notification permission after login
+        requestNotificationPermission();
       } else {
         setProfile(null);
         setPinAuthorized(false);
@@ -57,11 +60,9 @@ const App: React.FC = () => {
         {currentUser && profile && profile.pinHash && pinAuthorized && <Navbar />}
         
         <Routes>
-          {/* Public Routes */}
           <Route path="/login" element={currentUser ? <Navigate to="/" /> : <Login />} />
           <Route path="/signup" element={currentUser ? <Navigate to="/" /> : <Signup />} />
 
-          {/* Protected Routes Logic */}
           <Route path="/" element={
             !currentUser ? <Navigate to="/login" /> :
             !currentUser.emailVerified ? <Navigate to="/verify" /> :
@@ -98,7 +99,6 @@ const App: React.FC = () => {
             pinAuthorized ? <Settings profile={profile!} /> : <Navigate to="/" />
           } />
 
-          {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>
